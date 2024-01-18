@@ -15,7 +15,7 @@ DA=1.
 DB=.5
 f=.055; k=.062 # original
 # f=.025; k=.052
-f=.0367; k=.0649 # mitosis
+#f=.0367; k=.0649 # mitosis
 # k=.05452; f=.10159
 # k=.06362; f=.06625
 
@@ -65,10 +65,10 @@ class Grid:
         self.b = next_b
 
         # color array
-        self.c = np.floor((self.a - self.b) * 255.)
+        self.c = (self.a - self.b)
         gradient = np.gradient(self.c)
-        self.g = (gradient[0] - gradient[1]) - 50
-        self.c = np.clip(self.c, 0., 255.)
+        self.g = np.clip(gradient[1] - gradient[0], 0., 1.)
+        self.c = np.clip(self.c, 0., 1.)
     
     def seed_block(self, i, j, width, height, a, b):
 
@@ -77,14 +77,36 @@ class Grid:
         self.c = np.floor((self.a - self.b) * 255.)
         self.c = np.clip(self.c, 0, 255.)
 
-def gray(grid):
-    c = 255 * (grid.c / grid.c.max())
+    def write_csv(self, path):
+        np.savetxt(path, self.c, delimiter=",")
+
+    def write_img(self, path):
+        np.savetxt(path, self.c, delimiter=",")
+
+def color(grid):
+    c = (grid.c / grid.c.max()) * 255.
+    g = (grid.g / grid.g.max())
+
     w, h = c.shape
     ret = np.empty((w, h, 3), dtype=np.uint8)
-    ret[:, :, 2] = c
-    ret[:, :, 1] = c #+ grid.g * 100
+
+    # r
     ret[:, :, 0] = c
+    # b
+    ret[:, :, 2] = c
+    # g
+    ret[:, :, 1] = c
+
     return ret
+
+# def gray(grid):
+#     c = 255 * (grid.c / grid.c.max())
+#     w, h = c.shape
+#     ret = np.empty((w, h, 3), dtype=np.uint8)
+#     ret[:, :, 2] = c
+#     ret[:, :, 1] = c #+ grid.g * 100
+#     ret[:, :, 0] = c
+#     return ret
 
 
 def main():
@@ -97,8 +119,8 @@ def main():
 
     debug = args.debug.lower() == "true"
 
-    res = (540, 540)
-    substeps = 2
+    res = (512, 512)
+    substeps = 10
     block_size = 5
     pygame.init()
     screen = pygame.display.set_mode(res)
@@ -110,10 +132,10 @@ def main():
     grid = Grid(screen, 1)
 
     # seed blocks
-    for _ in range(100):
-        x = np.random.randint(0, grid.width)
-        y = np.random.randint(0, grid.height)
-        grid.seed_block(x, y, block_size, block_size, 0, 1)
+    # for _ in range(10):
+    #     x = np.random.randint(0, grid.width)
+    #     y = np.random.randint(0, grid.height)
+    #     grid.seed_block(x, y, block_size, block_size, 0, 1)
 
     iterate = False
 
@@ -126,7 +148,10 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     iterate = True
-
+                elif event.key == pygame.K_s:
+                    grid.write_csv("domain.csv")
+                    pygame.image.save(screen, "domain.png")
+                    print("SAVE")
         mouse_pressed = pygame.mouse.get_pressed()
 
         if mouse_pressed[0]:
@@ -140,7 +165,7 @@ def main():
             grid.seed_block(*tile, block_size, block_size, 1, 0)
 
         # drawing the pixels
-        surf = pygame.surfarray.make_surface(gray(grid))
+        surf = pygame.surfarray.make_surface(color(grid))
         screen.blit(surf, (0, 0))
 
         if iterate:
